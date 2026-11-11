@@ -20,6 +20,7 @@
 """Evoformer network."""
 
 import functools
+import os as _os
 
 from alphafold3.common import base_config
 from alphafold3.model import feat_batch
@@ -334,6 +335,13 @@ class Evoformer(hk.Module):
       pairformer_stack = hk.experimental.layer_stack(
           self.config.pairformer.num_layer
       )(pairformer_fn)
+
+      # Pair representation scaling: z := (1 + β)·z before the Pairformer stack.
+      # β is read from PRS_BETA env var (set by the prs CLI wrapper).
+      # β = 0 reproduces stock AlphaFold 3 inference.
+      _prs_beta = float(_os.environ.get('PRS_BETA', '0.0'))
+      if _prs_beta != 0.0:
+        pair_activations = pair_activations * (1.0 + _prs_beta)
 
       pair_activations, single_activations = pairformer_stack(
           (pair_activations, single_activations)
